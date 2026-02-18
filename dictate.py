@@ -161,7 +161,12 @@ def transcribe_audio(audio_file):
     """Transcribe audio file using Whisper"""
     print_status("TRANSCRIBING AUDIO...", "info")
     model = load_model()
-    result = model.transcribe(audio_file, fp16=False)
+    result = model.transcribe(
+        audio_file,
+        fp16=False,
+        language="en",  # Force English for consistent punctuation
+        initial_prompt="Transcribe with proper punctuation and capitalization."
+    )
     return result["text"].strip()
 
 
