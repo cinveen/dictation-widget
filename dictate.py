@@ -8,7 +8,6 @@ import sounddevice as sd
 import soundfile as sf
 import numpy as np
 import whisper
-import torch
 import tempfile
 import os
 import sys
@@ -25,7 +24,6 @@ DIM = '\033[2m'
 
 # Global variables
 model = None
-device = None
 is_recording = False
 recording_data = []
 sample_rate = 16000  # Whisper's native sample rate for faster processing
@@ -66,34 +64,12 @@ def print_status(message, status_type="info"):
         print(f"{BRIGHT_GREEN}> {message}{RESET}", end='')
 
 
-def get_device():
-    """Detect best available device for Whisper"""
-    global device
-    if device is None:
-        # Note: MPS (Apple Silicon GPU) can have compatibility issues with Whisper
-        # The code will auto-fallback to CPU if MPS fails
-        if torch.backends.mps.is_available():
-            device = "mps"  # Apple Silicon GPU
-        elif torch.cuda.is_available():
-            device = "cuda"  # NVIDIA GPU
-        else:
-            device = "cpu"
-    return device
-
-
 def load_model():
-    """Lazy-load the Whisper model with GPU acceleration"""
+    """Lazy-load the Whisper model"""
     global model
     if model is None:
-        device = get_device()
-        device_name = {
-            "mps": "Apple Silicon GPU",
-            "cuda": "NVIDIA GPU",
-            "cpu": "CPU"
-        }.get(device, device)
-
-        print_status(f"LOADING WHISPER MODEL ({device_name})...", "info")
-        model = whisper.load_model("large", device=device)
+        print_status("LOADING WHISPER MODEL...", "info")
+        model = whisper.load_model("large")
         print_status("MODEL LOADED", "success")
     return model
 
@@ -182,30 +158,11 @@ def stop_recording():
 
 
 def transcribe_audio(audio_file):
-    """Transcribe audio file using Whisper with GPU acceleration"""
-    global model, device
-
+    """Transcribe audio file using Whisper"""
     print_status("TRANSCRIBING AUDIO...", "info")
     model = load_model()
-    current_device = get_device()
-
-    # Use fp16 for GPU (much faster), fp32 for CPU
-    use_fp16 = current_device in ["mps", "cuda"]
-
-    try:
-        result = model.transcribe(audio_file, fp16=use_fp16)
-        return result["text"].strip()
-    except RuntimeError as e:
-        if "SparseMPS" in str(e) or "MPS" in str(e):
-            # MPS backend issue - fallback to CPU
-            print_status("GPU error detected, retrying with CPU...", "info")
-            model = None  # Force reload
-            device = "cpu"
-            model = load_model()
-            result = model.transcribe(audio_file, fp16=False)
-            return result["text"].strip()
-        else:
-            raise  # Re-raise if it's a different error
+    result = model.transcribe(audio_file, fp16=False)
+    return result["text"].strip()
 
 
 def print_transcript(text):
