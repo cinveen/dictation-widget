@@ -70,6 +70,8 @@ def get_device():
     """Detect best available device for Whisper"""
     global device
     if device is None:
+        # Note: MPS (Apple Silicon GPU) can have compatibility issues with Whisper
+        # The code will auto-fallback to CPU if MPS fails
         if torch.backends.mps.is_available():
             device = "mps"  # Apple Silicon GPU
         elif torch.cuda.is_available():
@@ -188,8 +190,21 @@ def transcribe_audio(audio_file):
     # Use fp16 for GPU (much faster), fp32 for CPU
     use_fp16 = device in ["mps", "cuda"]
 
-    result = model.transcribe(audio_file, fp16=use_fp16)
-    return result["text"].strip()
+    try:
+        result = model.transcribe(audio_file, fp16=use_fp16)
+        return result["text"].strip()
+    except RuntimeError as e:
+        if "SparseMPS" in str(e) or "MPS" in str(e):
+            # MPS backend issue - fallback to CPU
+            print_status("GPU error detected, retrying with CPU...", "info")
+            global model, device
+            model = None  # Force reload
+            device = "cpu"
+            model = load_model()
+            result = model.transcribe(audio_file, fp16=False)
+            return result["text"].strip()
+        else:
+            raise  # Re-raise if it's a different error
 
 
 def print_transcript(text):
