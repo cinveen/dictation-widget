@@ -183,12 +183,14 @@ def stop_recording():
 
 def transcribe_audio(audio_file):
     """Transcribe audio file using Whisper with GPU acceleration"""
+    global model, device
+
     print_status("TRANSCRIBING AUDIO...", "info")
     model = load_model()
-    device = get_device()
+    current_device = get_device()
 
     # Use fp16 for GPU (much faster), fp32 for CPU
-    use_fp16 = device in ["mps", "cuda"]
+    use_fp16 = current_device in ["mps", "cuda"]
 
     try:
         result = model.transcribe(audio_file, fp16=use_fp16)
@@ -197,7 +199,6 @@ def transcribe_audio(audio_file):
         if "SparseMPS" in str(e) or "MPS" in str(e):
             # MPS backend issue - fallback to CPU
             print_status("GPU error detected, retrying with CPU...", "info")
-            global model, device
             model = None  # Force reload
             device = "cpu"
             model = load_model()
