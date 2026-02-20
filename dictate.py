@@ -24,6 +24,7 @@ DIM = '\033[2m'
 
 # Global variables
 model = None
+selected_language = "en"  # Default to English
 is_recording = False
 recording_data = []
 sample_rate = 16000  # Whisper's native sample rate for faster processing
@@ -62,6 +63,30 @@ def print_status(message, status_type="info"):
         print(f"{RED}[✗] {message}{RESET}")
     elif status_type == "prompt":
         print(f"{BRIGHT_GREEN}> {message}{RESET}", end='')
+
+
+def select_language():
+    """Let user select English or French"""
+    global selected_language
+
+    print(f"\n{GREEN}SELECT LANGUAGE:{RESET}")
+    print(f"{BRIGHT_GREEN}  [1]{RESET} English")
+    print(f"{BRIGHT_GREEN}  [2]{RESET} Français\n")
+
+    while True:
+        choice = input(f"{BRIGHT_GREEN}> Enter choice (1-2): {RESET}").strip()
+        if choice == "1":
+            selected_language = "en"
+            print_status("Selected: English", "success")
+            print()
+            return
+        elif choice == "2":
+            selected_language = "fr"
+            print_status("Selected: Français", "success")
+            print()
+            return
+        else:
+            print_status("Invalid choice. Please enter 1 or 2.", "error")
 
 
 def load_model():
@@ -164,7 +189,7 @@ def transcribe_audio(audio_file):
     result = model.transcribe(
         audio_file,
         fp16=False,
-        language="en",  # Force English for consistent punctuation
+        language=selected_language,
         initial_prompt="Transcribe with proper punctuation and capitalization."
     )
     return result["text"].strip()
@@ -212,6 +237,9 @@ def main():
     """Main program loop"""
     os.system('clear')
     print_banner()
+
+    # Language selection
+    select_language()
 
     print(f"{DIM}Press CTRL+C to exit{RESET}\n")
 
